@@ -5,7 +5,7 @@ import time
 import random
 
 class Bullet:
-    def __init__(self, x, y, target_x, target_y, size=10, speed=10, damage=10, count=1, pierce=0, explosion_radius=0):
+    def __init__(self, x, y, target_x, target_y, size=10, speed=10, damage=10, count=1, pierce=0, explosion_radius=0, image = None):
         self.size = size
         self.rect = pygame.Rect(x + 20, y + 20, self.size, self.size)
         self.speed = speed
@@ -21,14 +21,20 @@ class Bullet:
         self.pierce = pierce
         self.explosion_radius = explosion_radius
         self.pierced = 0  # Track how many enemies pierced
-
+        # Load bullet image and scale to bullet size
+        self.image = image
+        self.image = pygame.transform.scale(self.image, (self.size, self.size))
     def update(self):
         self.prev_pos = self.rect.center
         self.rect.x += self.velocity[0]
         self.rect.y += self.velocity[1]
 
     def draw(self, screen, color=(255, 255, 0)):
-        pygame.draw.rect(screen, color, self.rect)
+        # Draw the bullet image if available, else fallback to rect
+        if hasattr(self, "image") and self.image:
+            screen.blit(self.image, self.rect)
+        else:
+            pygame.draw.rect(screen, color, self.rect)
 
 class Player:
     def __init__(self):
@@ -72,6 +78,9 @@ class Player:
         self.dash_distance = 500
         self.dash_speed = self.speed * 3
         self.last_dash_time = 0
+        self.bullet_image = pygame.image.load("Player_Bullet.png")
+        self.next_level_score = [10, 30, 50, 100] + [1.2**i + 40*i for i in range(5, 999)]  # Example score progression
+        self.level = 0  # Player level
         
     def move(self, dx, dy):
         self.position[0] += dx if 0 <= self.position[0] + dx <= 1920 - self.size[0] else 0
@@ -108,7 +117,8 @@ class Player:
                     damage=self.bullet_damage,
                     count=self.bullet_count,
                     pierce=self.bullet_piercing,
-                    explosion_radius=self.bullet_explosion_radius
+                    explosion_radius=self.bullet_explosion_radius,
+                    image = self.bullet_image
                 )
                 self.bullets.append(bullet)
             self.last_shot_time = current_time
@@ -150,6 +160,25 @@ class Player:
         fill_x = self.position[0] + (dash_bar_length - fill_width)
         pygame.draw.rect(screen, (255,0 , 255), (fill_x, self.position[1] - 40, fill_width, dash_bar_height))
 
+        # Progress bar for next level
+        Next_level_bar_length = screen.get_width() - 200
+        Next_level_bar_height = 30
+        if self.level == 0:
+            prev_score = 0
+        else:
+            prev_score = self.next_level_score[self.level - 1]
+        next_score = self.next_level_score[self.level]
+        Next_level_ratio = (self.score - prev_score) / (next_score - prev_score)
+        Next_level_ratio = max(0, min(Next_level_ratio, 1))  # Clamp between 0 and 1
+
+        pygame.draw.rect(screen, (50, 50, 50), (100, screen.get_height() - 50, Next_level_bar_length, Next_level_bar_height))
+        pygame.draw.rect(screen, (70, 130, 255), (100, screen.get_height() - 50, Next_level_bar_length * Next_level_ratio, Next_level_bar_height))
+        # Draw score
+        font = pygame.font.SysFont(None, 36)
+        score_text = font.render(f"Score: {self.score}", True, (255, 255, 255))
+        screen.blit(score_text, (10, 10))
+
+
 
 
     def apply_upgrade(self, upgrade_name):
@@ -162,7 +191,7 @@ class Player:
         elif upgrade == "health":
             self.health += 20
         elif upgrade == "bullet_cooldown":
-            self.bullet_cooldown = max(0.05, self.bullet_cooldown - 0.05)
+            self.bullet_cooldown = max(0.1, self.bullet_cooldown - 0.05)
         elif upgrade == "speed":
             self.speed += 1
         elif upgrade == "bullet_size":

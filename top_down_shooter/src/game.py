@@ -1,6 +1,17 @@
 import pygame
 from pygame.locals import *
 from enemy import RangedEnemy
+from pygame import mixer
+import time
+
+mixer.init()
+# Load sounds
+HIT_SOUND = pygame.mixer.Sound("hit.wav")
+HIT_SOUND.set_volume(0.25)
+EXPLOSION_SOUND = pygame.mixer.Sound("explosion.wav")
+EXPLOSION_SOUND.set_volume(0.15)
+SHOOT_SOUND = pygame.mixer.Sound("shoot.mp3")
+SHOOT_SOUND.set_volume(0.25)
 
 class Game:
     def __init__(self, screen):
@@ -12,11 +23,12 @@ class Game:
         self.enemy_spawn_rate = 3000
         self.enemy_speed = 1.0
         self.explosions = []
+        self.pickups = []
+        self.active_buffs = []  # Track active timed buffs
 
     def initialize(self):
         from player import Player
         self.player = Player()
-        self.next_level_score = [10, 30, 50, 100] + [1.2**i + 40*i for i in range(5, 999)]  # Example score progression
         self.level = 0
 
     def handle_events(self):
@@ -42,9 +54,7 @@ class Game:
                 for enemy in self.enemies:
                     if enemy.rect.clipline(bullet.prev_pos, bullet.rect.center) or bullet.rect.colliderect(enemy.rect):
                         print("Collision detected!")
-                        sound = pygame.mixer.Sound("hit.wav")
-                        sound.set_volume(0.25)
-                        sound.play()  # Play hit sound
+                        HIT_SOUND.play()  # Play hit sound
                         if not hasattr(bullet, "already_hit"):
                             bullet.already_hit = set()
                         if enemy not in bullet.already_hit:
@@ -72,9 +82,7 @@ class Game:
                                         "radius": bullet.explosion_radius,
                                         "start_time": pygame.time.get_ticks()
                                     })
-                                sound = pygame.mixer.Sound("explosion.wav")
-                                sound.set_volume(0.15)
-                                sound.play()  # Play explosion sound
+                                EXPLOSION_SOUND.play()  # Play explosion sound
                             
                 for explosion in getattr(self, "explosions", []):
                     if pygame.time.get_ticks() - explosion["start_time"] < 500:
@@ -101,25 +109,111 @@ class Game:
                         print(f"Final Score: {self.player.score}")
                         self.running = False
                 if enemy.health <= 0:
+                    pickup = enemy.DropPickup()
+                    if pickup:
+                        self.pickups.append(pickup)
                     self.enemies.remove(enemy)
                     self.player.score += 10
                     print(f"Enemy defeated! Score: {self.player.score}")
 
-            if self.player.score >= self.next_level_score[self.level]:
-                self.level += 1
-                print(f"Level up! Now at level {self.level}")
+            if self.player.score >= self.player.next_level_score[self.player.level]:
+                self.player.level += 1
+                print(f"Level up! Now at level {self.player.level}")
                 font = pygame.font.SysFont(None, 48)
                 upgrade_text = font.render("Pick an upgrade!", True, (255, 255, 0))
                 text_rect = upgrade_text.get_rect(center=(self.screen.get_width() // 2, self.screen.get_height() // 2 * 1.8))
                 self.screen.blit(upgrade_text, text_rect)
                 pygame.display.flip()
                 self.player.handle_upgrades(self.screen)
-            
+
+            for pickup in self.pickups[:]:
+                if pickup.rect.colliderect(self.player.rect):
+                    print(f"Picked up {pickup.kind}!")
+                    if pickup.kind == "health":
+                        self.player.health += 20
+                        self.player.health = min(self.player.health, self.player.max_health)
+                    elif pickup.kind == "damage":
+                        self.player.bullet_damage += 20
+                        self.active_buffs.append({
+                            "type": "damage",
+                            "expire_time": time.time() + 5,
+                            "amount": 20
+                        })
+                    elif pickup.kind == "speed":
+                        self.player.speed += 3
+                        self.active_buffs.append({
+                            "type": "speed",
+                            "expire_time": time.time() + 5,
+                            "amount": 3
+                        })
+                    elif pickup.kind == "overload":
+                        self.player.health_regen += 1
+                        self.player.health += 20
+                        self.player.health = min(self.player.health, self.player.max_health)
+                        self.player.bullet_damage += 20
+                        self.player.speed += 3
+                        self.active_buffs.append({
+                            "type": "damage",
+                            "expire_time": time.time() + 5,
+                            "amount": 20
+                        })
+                        self.active_buffs.append({
+                            "type": "speed",
+                            "expire_time": time.time() + 5,
+                            "amount": 3
+                        })
+                        # Overload cooldown buff
+                        old_cooldown = self.player.bullet_cooldown
+                        self.player.bullet_cooldown = 0.03
+                        self.active_buffs.append({
+                            "type": "cooldown",
+                            "expire_time": time.time() + 8,
+                            "old_value": old_cooldown
+                        })
+                    self.pickups.remove(pickup)
+
+            # Handle buff expiration
+            now = time.time()
+            for buff in self.active_buffs[:]:
+                if now >= buff["expire_time"]:
+                    if buff["type"] == "damage":
+                        self.player.bullet_damage -= buff["amount"]
+                    elif buff["type"] == "speed":
+                        self.player.speed -= buff["amount"]
+                    elif buff["type"] == "cooldown":
+                        self.player.bullet_cooldown = buff["old_value"]
+                    self.active_buffs.remove(buff)
+
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 self.player.dash()
+
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.running = False
+
+    def draw_buff_timers(self, surface):
+        font = pygame.font.SysFont(None, 28)
+        timer_y = 50  # Start lower to avoid score
+        now = time.time()
+        grouped_buffs = {}
+        for buff in self.active_buffs:
+            key = buff["type"]
+            time_left = max(0, buff["expire_time"] - now)
+            if key in grouped_buffs:
+                grouped_buffs[key] = max(grouped_buffs[key], time_left)
+            else:
+                grouped_buffs[key] = time_left
+        for buff_type, time_left in grouped_buffs.items():
+            if buff_type == "damage":
+                text = font.render(f"Damage Buff: {time_left:.1f}s", True, (255, 80, 80))
+            elif buff_type == "speed":
+                text = font.render(f"Speed Buff: {time_left:.1f}s", True, (80, 255, 80))
+            elif buff_type == "cooldown":
+                text = font.render(f"Overload: {time_left:.1f}s", True, (80, 80, 255))
+            else:
+                text = font.render(f"{buff_type.capitalize()} Buff: {time_left:.1f}s", True, (255, 255, 255))
+            surface.blit(text, (10, timer_y))
+            timer_y += 32
                 
-
-
     def draw(self):
         self.screen.fill((0, 0, 0))
         self.player.draw(self.screen)
@@ -134,6 +228,10 @@ class Game:
         for explosion in getattr(self, "explosions", []):
             if now - explosion["start_time"] < 500:
                 pygame.draw.circle(self.screen, (255, 100, 0), explosion["pos"], explosion["radius"])
+        for pickup in self.pickups:
+            pickup.draw(self.screen)
+        # Draw buff timers overlay BEFORE flipping the display
+        self.draw_buff_timers(self.screen)
         pygame.display.flip()
         # Clean up old explosions
         self.explosions = [e for e in self.explosions if now - e["start_time"] < 500]
@@ -164,10 +262,29 @@ class Game:
         import random
         x = random.randint(0, self.screen.get_width() - 50)
         y = random.randint(0, self.screen.get_height() - 50)
-        kind = random.choice(["enemy", "ranged"])
+        if self.player.level >= 12:
+            kind = random.choice([
+            "enemy",
+            "ranged",
+            "enemy",
+            "ranged",
+            "spawner"
+            ])
+        elif self.player.level >= 7:
+            kind = random.choice([
+            "enemy",
+            "ranged"
+            ])
+        else:
+            kind = "enemy"
         if kind == "enemy":
-            enemy = Enemy(x, y, self.enemy_health, self.enemy_speed)
+            enemy = Enemy(x, y, self.enemy_health, self.enemy_speed + 1)
         elif kind == "ranged":
             enemy = RangedEnemy(x, y, self.enemy_health, self.enemy_speed, bullet_speed=3, bullet_damage=5)
+        elif kind == "spawner":
+            from enemy import SpawnerEnemy
+            x = random.randint(0, self.screen.get_width() - 80)
+            y = random.randint(0, self.screen.get_height() - 80)
+            enemy = SpawnerEnemy(x, y, self.enemy_health * 3, self.enemy_speed / 2, self)
         enemy.player = self.player
         self.enemies.append(enemy)
