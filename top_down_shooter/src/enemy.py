@@ -18,19 +18,24 @@ enemies_killed_ranged = 0
 enemies_killed_spawner = 0
 
 class Enemy:
-    def __init__(self, x, y, health, speed):
+    def __init__(self, x, y, health, speed, chance):
         self.position = (x, y)
         self.image = ENEMY_IMAGE.copy()
         self.health = health
         self.rect = self.image.get_rect(topleft=self.position)
         self.speed = speed
+        self.pickup_chance = chance
         
         
     def move(self, dx, dy):
         # Clamp position to keep enemy within screen bounds
         new_x = self.position[0] + dx
         new_y = self.position[1] + dy
-        self.position = (max(0, min(new_x, 1920)), max(0, min(new_y, 1080)))
+        width, height = self.rect.size
+        screen_width, screen_height = 1920, 1080
+        clamped_x = max(0, min(new_x, screen_width - width))
+        clamped_y = max(0, min(new_y, screen_height - height))
+        self.position = (clamped_x, clamped_y)
         self.rect.topleft = self.position
 
     def draw(self, screen):
@@ -50,7 +55,7 @@ class Enemy:
                 enemies_killed_melee += 1
 
     def DropPickup(self):
-        if random.random() < 0.1:  # 10% chance to drop a pickup
+        if random.random() < self.pickup_chance:  # 10% chance to drop a pickup
             pickup_type = random.choice(["health", "damage", "speed", "health", "damage", "speed", "overload"])
             if pickup_type == "health":
                 image = pygame.image.load("health_pickup.png").convert_alpha()
@@ -84,14 +89,14 @@ class Enemy:
                 self.move(move_x, move_y)
 
 class RangedEnemy(Enemy):
-    def __init__(self, x, y, health, speed, bullet_speed, bullet_damage):
+    def __init__(self, x, y, health, speed, bullet_speed, bullet_damage, chance):
         self.bullet_speed = bullet_speed
         self.bullet_damage = bullet_damage
         self.bullet_cooldown = 2
         self.last_shot_time = 0
         self.bullets = []
         self.bullet_image = pygame.image.load("Enemy_Bullet.png")
-        super().__init__(x, y, health, speed)
+        super().__init__(x, y, health, speed, chance)
         self.image = RANGED_ENEMY_IMAGE.copy()
         
 
@@ -137,8 +142,8 @@ class RangedEnemy(Enemy):
             bullet.update()
 
 class SpawnerEnemy(Enemy):
-    def __init__(self, x, y, health, speed, game=None):
-        super().__init__(x, y, health, speed)
+    def __init__(self, x, y, health, speed, game=None, chance=None):
+        super().__init__(x, y, health, speed, chance)
         self.spawn_rate = 5
         self.image = SPAWNER_ENEMY_IMAGE.copy()
         self.rect = self.image.get_rect(topleft=(x, y))
@@ -148,7 +153,7 @@ class SpawnerEnemy(Enemy):
     def spawn_enemy(self):
         current_time = time.time()
         if current_time - self.last_spawn_time >= self.spawn_rate:
-            new_enemy = Enemy(self.rect.centerx, self.rect.centery, self.health / 3, self.speed)
+            new_enemy = Enemy(self.rect.centerx, self.rect.centery, self.health / 3, self.speed, self.game.pickup_chance)
             new_enemy.rect = new_enemy.image.get_rect(center=self.rect.center)
             new_enemy.player = self.player  # Ensure the new enemy has a reference to the player
             if self.game:  # Use self.game, not global game

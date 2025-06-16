@@ -36,8 +36,106 @@ class Bullet:
         else:
             pygame.draw.rect(screen, color, self.rect)
 
+class Mine:
+    def __init__(self, x, y, size=50, damage=50, explosion_radius=100, image=None):
+        self.position = pygame.Vector2(x, y)
+        self.size = size
+        self.damage = damage
+        self.explosion_radius = explosion_radius
+        self.image = image if image else pygame.Surface((size, size))
+        self.rect = self.image.get_rect(topleft=(x, y))
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect.topleft)
+
+    def update(self):
+        self.rect.topleft = (self.position.x, self.position.y)
+
+import pygame
+import time
+
+import pygame
+import time
+
+class EnergyBlast:
+    def __init__(self, player, draw_callback=None):
+        self.player = player
+        self.active = False
+        self.start_time = 0
+        self.duration = 0.5  # seconds
+        self.radius = 500
+        self.current_radius = 0
+        self.max_radius = 500
+        self.damage = 120
+        self.knockback = 100
+        self.cooldown = 5
+        self.last_used = 0
+        self.sound = pygame.mixer.Sound("energy_blast.mp3")
+        self.sound.set_volume(0.25)
+        self.draw_callback = draw_callback
+        self.enemies_hit = set()
+
+    def start(self, cooldown=5, radius=500, damage=120, knockback=200):
+        now = time.time()
+        if now - self.last_used >= cooldown and not self.active:
+            self.active = True
+            self.start_time = now
+            self.duration = 0.5  # seconds for the animation
+            self.radius = radius
+            self.max_radius = radius
+            self.current_radius = 0
+            self.damage = damage
+            self.knockback = knockback
+            self.last_used = now
+            self.enemies_hit = set()
+            self.sound.stop()  # Stop any currently playing instance
+            self.sound.play()  # Play the energy blast sound, overwriting others
+
+    def update(self, enemies):
+        if not self.active:
+            return
+        elapsed = time.time() - self.start_time
+        progress = min(1.0, elapsed / self.duration)
+        self.current_radius = int(self.max_radius * progress)
+        # Apply effects when the animated circle intersects the enemy rect
+        blast_center = (
+            self.player.position[0] + self.player.size[0] // 2,
+            self.player.position[1] + self.player.size[1] // 2
+        )
+        for enemy in enemies:
+            if enemy in self.enemies_hit:
+                continue
+            # Check if the current animated circle intersects the enemy's rect
+            enemy_center = enemy.rect.center
+            dist = ((enemy_center[0] - blast_center[0]) ** 2 + (enemy_center[1] - blast_center[1]) ** 2) ** 0.5
+            # Use current_radius for intersection
+            if dist <= self.current_radius:
+                if hasattr(enemy, "take_damage"):
+                    enemy.take_damage(self.damage)
+                dx = enemy_center[0] - blast_center[0]
+                dy = enemy_center[1] - blast_center[1]
+                if dx != 0 or dy != 0:
+                    norm = (dx ** 2 + dy ** 2) ** 0.5
+                    knockback_x = self.knockback * dx / norm if norm else 0
+                    knockback_y = self.knockback * dy / norm if norm else 0
+                    if hasattr(enemy, "move"):
+                        enemy.move(knockback_x, knockback_y)
+                self.enemies_hit.add(enemy)
+        if progress >= 1.0:
+            self.active = False
+
+    def draw(self, surface):
+        if not self.active:
+            return
+        blast_center = (
+            self.player.position[0] + self.player.size[0] // 2,
+            self.player.position[1] + self.player.size[1] // 2
+        )
+        pygame.draw.circle(surface, (70, 130, 255), blast_center, self.current_radius, 5)
+
 class Player:
     def __init__(self):
+        self.game = None
         self.position = [400, 300]
         self.speed = 5
         self.size = (104, 88)
@@ -56,31 +154,37 @@ class Player:
         self.bullet_damage = 10
         self.bullet_size = 10
         self.bullet_cooldown = 0.5  # seconds
+        self.orginal_bullet_cooldown = self.bullet_cooldown  # Store original cooldown for upgrades
         self.health_regen = 5
         self.bullet_piercing = 0
         self.bullet_explosion_radius = 0
         self.last_shot_time = 0
+        self.last_mine_drop_time = 0
+        self.last_mine_drop_cooldown = 2.5
+        self.mine_damage = 200
+        self.mine_explosion_radius = 300
+        self.mine_image = pygame.image.load("mine.png")
         self.bullets = []
-        self.upgrade_options = {
-            f"Increase bullet speed ({self.bullet_speed} > {self.bullet_speed + 2})": 0.15,
-            f"Increase bullet damage ({self.bullet_damage} > {self.bullet_damage + 2})": 0.15,
-            f"Increase health ({self.max_health} > {self.max_health + 20})": 0.15,
-            f"Increase firerate ({self.bullet_cooldown:.2f}s > {max(0.1, self.bullet_cooldown - 0.05):.2f}s)": 0.15,
-            f"Increase player speed ({self.speed} > {self.speed + 1})": 0.15,
-            f"Increase bullet size ({self.bullet_size} > {self.bullet_size + 2})": 0.15,
-            f"Increase Health regeneration ({self.health_regen} > {self.health_regen + 1})": 0.05,
-            f"Increase bullet count ({self.bullet_count} > {self.bullet_count + 1})": 0.02,
-            f"Increase bullet piercing ({self.bullet_piercing} > {self.bullet_piercing + 1})": 0.02,
-            f"Increase bullet explosion radius ({self.bullet_explosion_radius} > {self.bullet_explosion_radius + 10})": 0.01
-        }  # Upgrade : Chance
+        self.base_bullet_cooldown = 0.5  # Store base value
+        self.base_bullet_speed = 15
+        self.base_bullet_damage = 10
+        self.base_speed = 5
+        self.base_bullet_size = 10
+        self.base_health_regen = 5
         self.UPGRADE_COLORS = [(200, 200, 0), (0, 200, 200), (200, 0, 200)]
         self.dash_cooldown = 10  # seconds
         self.dash_distance = 500
         self.dash_speed = self.speed * 3
         self.last_dash_time = 0
         self.bullet_image = pygame.image.load("Player_Bullet.png")
-        self.next_level_score = [10, 30, 50, 100] + [1.2**i + 40*i for i in range(5, 999)]  # Example score progression
+        self.next_level_score = [10, 30, 50, 100] + [1.2**i + 50*i for i in range(5, 999)]  # Example score progression
         self.level = 0  # Player level
+        self.mines = []  # List to hold mines
+        self.energy_blast_cooldown = 5  # seconds
+        self.energy_blast_radius = 500  # Radius of the energy blast
+        self.energy_blast_damage = 120  # Damage of the energy blast
+        self.energy_blast_knockback = 80  # Knockback distance for enemies hit by the blast
+        self.energy_blast = EnergyBlast(self, draw_callback=None)  # Initialize energy blast with player reference
         
     def move(self, dx, dy):
         self.position[0] += dx if 0 <= self.position[0] + dx <= 1920 - self.size[0] else 0
@@ -126,6 +230,24 @@ class Player:
             sound = pygame.mixer.Sound("shoot.mp3")
             sound.set_volume(0.25)
             sound.play()  # Play shooting sound
+
+    def drop_mine(self):
+        current_time = time.time()
+        if current_time - self.last_mine_drop_time >= self.last_mine_drop_cooldown:
+            # Drop mine at a random position on the screen
+            screen_width, screen_height = 1920, 1080
+            mine_x = random.randint(0, screen_width - 50)
+            mine_y = random.randint(0, screen_height - 50)
+            mine = Mine(
+                mine_x,
+                mine_y,
+                size=50,
+                damage=self.mine_damage,
+                explosion_radius=self.mine_explosion_radius,
+                image=self.mine_image
+            )
+            self.mines.append(mine)
+            self.last_mine_drop_time = current_time
 
     def draw(self, screen):
         # Calculate the center of the player
@@ -185,19 +307,23 @@ class Player:
         upgrade_options = self.get_upgrade_options()
         upgrade = upgrade_options[upgrade_name]
         if upgrade == "bullet_speed":
-            self.bullet_speed += 2
+            self.base_bullet_speed += 2
+            self.bullet_speed = self.base_bullet_speed
         elif upgrade == "bullet_damage":
-            self.bullet_damage += 2
-        elif upgrade == "health":
-            self.health += 20
+            self.base_bullet_damage += 2
+            self.bullet_damage = self.base_bullet_damage
         elif upgrade == "bullet_cooldown":
-            self.bullet_cooldown = max(0.1, self.bullet_cooldown - 0.05)
+            self.base_bullet_cooldown = max(0.1, self.base_bullet_cooldown - 0.05)
+            self.bullet_cooldown = self.base_bullet_cooldown
         elif upgrade == "speed":
-            self.speed += 1
+            self.base_speed += 1
+            self.speed = self.base_speed
         elif upgrade == "bullet_size":
-            self.bullet_size += 2
+            self.base_bullet_size += 2
+            self.bullet_size = self.base_bullet_size
         elif upgrade == "health_regen":
-            self.health_regen += 1
+            self.base_health_regen += 1
+            self.health_regen = self.base_health_regen
         elif upgrade == "bullet_count":
             self.bullet_count += 1
         elif upgrade == "bullet_piercing":
@@ -206,9 +332,38 @@ class Player:
             self.bullet_explosion_radius += 10
         elif upgrade == "dash_cooldown":
             self.dash_cooldown = max(1, self.dash_cooldown - 1)
+        elif upgrade == "mine_damage":
+            self.mine_damage += 10
+        elif upgrade == "mine_explosion_radius":
+            self.mine_explosion_radius += 20
+        elif upgrade == "mine_cooldown":
+            self.last_mine_drop_cooldown = max(0.1, self.last_mine_drop_cooldown - 0.5)
+        elif upgrade == "energy_blast_damage":
+            self.energy_blast_damage += 30
+        elif upgrade == "energy_blast_radius":
+            self.energy_blast_radius += 50
+        elif upgrade == "energy_blast_knockback":
+            self.energy_blast_knockback = min(160, self.energy_blast_knockback + 20)
+        elif upgrade == "energy_blast_cooldown":
+            self.energy_blast_cooldown = max(1, self.energy_blast_cooldown - 1)
 
     def get_upgrade_options(self):
-        return {
+        # Use base values for display
+        if self.level < 10:
+            return {
+                f"Increase bullet speed ({self.base_bullet_speed} > {self.base_bullet_speed + 2})": "bullet_speed",
+                f"Increase bullet damage ({self.base_bullet_damage} > {self.base_bullet_damage + 2})": "bullet_damage",
+                f"Increase health ({self.max_health} > {self.max_health + 20})": "health",
+                f"Increase firerate ({self.base_bullet_cooldown:.2f}s > {max(0.1, self.base_bullet_cooldown - 0.05):.2f}s)": "bullet_cooldown",
+                f"Increase player speed ({self.base_speed} > {self.base_speed + 1})": "speed",
+                f"Increase bullet size ({self.base_bullet_size} > {self.base_bullet_size + 2})": "bullet_size",
+                f"Increase Health regeneration ({self.base_health_regen} > {self.base_health_regen + 1})": "health_regen",
+                f"Increase bullet count ({self.bullet_count} > {self.bullet_count + 1})": "bullet_count",
+                f"Increase bullet piercing ({self.bullet_piercing} > {self.bullet_piercing + 1})": "bullet_piercing",
+                f"Increase bullet explosion radius ({self.bullet_explosion_radius} > {self.bullet_explosion_radius + 10})": "bullet_explosion_radius"
+            } 
+        elif self.game.weapon_choice == "mine":
+            return {
             f"Increase bullet speed ({self.bullet_speed} > {self.bullet_speed + 2})": "bullet_speed",
             f"Increase bullet damage ({self.bullet_damage} > {self.bullet_damage + 2})": "bullet_damage",
             f"Increase health ({self.health} > {self.health + 20})": "health",
@@ -219,8 +374,30 @@ class Player:
             f"Increase bullet count ({self.bullet_count} > {self.bullet_count + 1})": "bullet_count",
             f"Increase bullet piercing ({self.bullet_piercing} > {self.bullet_piercing + 1})": "bullet_piercing",
             f"Increase bullet explosion radius ({self.bullet_explosion_radius} > {self.bullet_explosion_radius + 10})": "bullet_explosion_radius",
-            f"Decrease dash cooldown ({self.dash_cooldown} > {max(1, self.dash_cooldown - 1)})": "dash_cooldown"
-        }
+            f"Decrease dash cooldown ({self.dash_cooldown} > {max(1, self.dash_cooldown - 1)})": "dash_cooldown",
+            f"Increase mine damage ({self.mine_damage} > {self.mine_damage + 10})": "mine_damage",
+            f"Increase mine explosion radius ({self.mine_explosion_radius} > {self.mine_explosion_radius + 20})": "mine_explosion_radius",
+            f"Decrease mine cooldown ({self.last_mine_drop_cooldown} > {max(0.1, self.last_mine_drop_cooldown - 0.5)})": "mine_cooldown",
+            }
+        else:
+            return {
+            f"Increase bullet speed ({self.bullet_speed} > {self.bullet_speed + 2})": "bullet_speed",
+            f"Increase bullet damage ({self.bullet_damage} > {self.bullet_damage + 2})": "bullet_damage",
+            f"Increase health ({self.health} > {self.health + 20})": "health",
+            f"Increase firerate ({self.bullet_cooldown:.2f}s > {max(0.1, self.bullet_cooldown - 0.05):.2f}s)": "bullet_cooldown",
+            f"Increase player speed ({self.speed} > {self.speed + 1})": "speed",
+            f"Increase bullet size ({self.bullet_size} > {self.bullet_size + 2})": "bullet_size",
+            f"Increase Health regeneration ({self.health_regen} > {self.health_regen + 1})": "health_regen",
+            f"Increase bullet count ({self.bullet_count} > {self.bullet_count + 1})": "bullet_count",
+            f"Increase bullet piercing ({self.bullet_piercing} > {self.bullet_piercing + 1})": "bullet_piercing",
+            f"Increase bullet explosion radius ({self.bullet_explosion_radius} > {self.bullet_explosion_radius + 10})": "bullet_explosion_radius",
+            f"Decrease dash cooldown ({self.dash_cooldown} > {max(1, self.dash_cooldown - 1)})": "dash_cooldown",
+            f"Increase energy blast damage ({self.energy_blast_damage} > {self.energy_blast_damage + 30})": "energy_blast_damage",
+            f"Increase energy blast radius ({self.energy_blast_radius} > {self.energy_blast_radius + 50})": "energy_blast_radius",
+            f"Increase energy blast knockback ({self.energy_blast_knockback} > {min(200, self.energy_blast_knockback + 20)}": "energy_blast_knockback",
+            f"Decrease energy blast cooldown ({self.energy_blast_cooldown} > {max(1, self.energy_blast_cooldown - 1)})": "energy_blast_cooldown",
+            }
+
 
     def handle_upgrades(self, screen):
         font = pygame.font.SysFont(None, 36)
