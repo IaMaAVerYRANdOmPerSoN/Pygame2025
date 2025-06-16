@@ -394,7 +394,7 @@ class Player:
             f"Decrease dash cooldown ({self.dash_cooldown} > {max(1, self.dash_cooldown - 1)})": "dash_cooldown",
             f"Increase energy blast damage ({self.energy_blast_damage} > {self.energy_blast_damage + 30})": "energy_blast_damage",
             f"Increase energy blast radius ({self.energy_blast_radius} > {self.energy_blast_radius + 50})": "energy_blast_radius",
-            f"Increase energy blast knockback ({self.energy_blast_knockback} > {min(200, self.energy_blast_knockback + 20)}": "energy_blast_knockback",
+            f"Increase energy blast knockback ({self.energy_blast_knockback} > {min(200, self.energy_blast_knockback + 20)})": "energy_blast_knockback",
             f"Decrease energy blast cooldown ({self.energy_blast_cooldown} > {max(1, self.energy_blast_cooldown - 1)})": "energy_blast_cooldown",
             }
 
@@ -462,4 +462,3 @@ class Player:
             self.position[0] = max(0, min(new_x, 1920 - self.size[0]))
             self.position[1] = max(0, min(new_y, 1080 - self.size[1]))
             self.last_dash_time = current_time
-            print("Dashing!")

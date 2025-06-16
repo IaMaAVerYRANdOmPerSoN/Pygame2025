@@ -140,7 +140,6 @@ class Game:
                 ]
                 for bullet in enemy.bullets[:]:
                     if bullet.rect.colliderect(self.player.rect):
-                        print("Player hit by enemy bullet!")
                         self.player.health -= bullet.damage
                         enemy.bullets.remove(bullet)
 
@@ -151,8 +150,6 @@ class Game:
                 self.player.health -= 12
                 enemy.take_damage(enemy.health)
                 if self.player.health <= 0:
-                    print("Player defeated!")
-                    print(f"Final Score: {self.player.score}")
                     self.running = False
             if enemy.health <= 0:
                 pickup = enemy.DropPickup()
@@ -160,7 +157,6 @@ class Game:
                     self.pickups.append(pickup)
                 self.enemies.remove(enemy)
                 self.player.score += 10
-                print(f"Enemy defeated! Score: {self.player.score}")
                 # Add death explosion effect
                 self.explosions.append({
                     "pos": enemy.rect.center,
@@ -173,7 +169,6 @@ class Game:
         # --- Level Up and Upgrades ---
         if self.player.score >= self.player.next_level_score[self.player.level]:
             self.player.level += 1
-            print(f"Level up! Now at level {self.player.level}")
             font = pygame.font.SysFont(None, 48)
             # Only show weapon selection once at level 1, and only if not already chosen
             if self.player.level == 10 and not getattr(self, "weapon_chosen", False):
@@ -213,7 +208,6 @@ class Game:
         # --- Pickup Collisions ---
         for pickup in self.pickups[:]:
             if pickup.rect.colliderect(self.player.rect):
-                print(f"Picked up {pickup.kind}!")
                 if pickup.kind == "health":
                     self.player.health += 20
                     self.player.health = min(self.player.health, self.player.max_health)
@@ -284,7 +278,6 @@ class Game:
                 if mine.rect.colliderect(enemy.rect):
                     for enemy2 in self.enemies:
                         if mine.rect.inflate(100, 100).colliderect(enemy2.rect):
-                            print("Mine triggered!")
                             enemy2.take_damage(mine.damage)
                     if mine not in mines_to_remove:
                         mines_to_remove.append(mine)
