@@ -8,7 +8,7 @@ import glob
 
 # Load all explosion frames into a list
 pygame.init()
-pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
 
 DEATH_EXPLOSION_FRAMES = [
     pygame.image.load(f).convert_alpha()
@@ -45,7 +45,7 @@ class Game:
         self.explosions = []
         self.pickups = []
         self.active_buffs = []  # Track active timed buffs
-        self.background =  pygame.transform.scale(pygame.image.load("Background.jpg"), (1920, 1080))
+        self.background =  pygame.transform.scale(pygame.image.load("Background.jpg"), (1280, 720))
         self.weapon_choice = None
         self.weapon_choosen = False
         self.pickup_chance = None
@@ -382,7 +382,7 @@ class Game:
         for bullet in self.player.bullets:
             bullet.update()
         # Remove bullets that go off screen
-        self.player.bullets = [b for b in self.player.bullets if 0 <= b.rect.x <= 1920 and 0 <= b.rect.y <= 1080]
+        self.player.bullets = [b for b in self.player.bullets if 0 <= b.rect.x <= 1280 and 0 <= b.rect.y <= 720]
         self.player.rect.topleft = self.player.position
         self.player.rect = pygame.Rect(self.player.position[0], self.player.position[1], *self.player.size)
         self.player.rect.clamp_ip(self.screen.get_rect())

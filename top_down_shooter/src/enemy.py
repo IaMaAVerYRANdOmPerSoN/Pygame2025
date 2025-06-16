@@ -32,7 +32,7 @@ class Enemy:
         new_x = self.position[0] + dx
         new_y = self.position[1] + dy
         width, height = self.rect.size
-        screen_width, screen_height = 1920, 1080
+        screen_width, screen_height = 1280, 720
         clamped_x = max(0, min(new_x, screen_width - width))
         clamped_y = max(0, min(new_y, screen_height - height))
         self.position = (clamped_x, clamped_y)

@@ -187,8 +187,8 @@ class Player:
         self.energy_blast = EnergyBlast(self, draw_callback=None)  # Initialize energy blast with player reference
         
     def move(self, dx, dy):
-        self.position[0] += dx if 0 <= self.position[0] + dx <= 1920 - self.size[0] else 0
-        self.position[1] += dy if 0 <= self.position[1] + dy <= 1080 - self.size[1] else 0
+        self.position[0] += dx if 0 <= self.position[0] + dx <= 1280 - self.size[0] else 0
+        self.position[1] += dy if 0 <= self.position[1] + dy <= 720 - self.size[1] else 0
 
     def shoot(self, target_pos):
         current_time = time.time()
@@ -235,7 +235,7 @@ class Player:
         current_time = time.time()
         if current_time - self.last_mine_drop_time >= self.last_mine_drop_cooldown:
             # Drop mine at a random position on the screen
-            screen_width, screen_height = 1920, 1080
+            screen_width, screen_height = 1280, 720
             mine_x = random.randint(0, screen_width - 50)
             mine_y = random.randint(0, screen_height - 50)
             mine = Mine(
@@ -406,7 +406,7 @@ class Player:
         options = random.sample(list(upgrade_options.keys()), 3)
         buttons = []
         button_rects = []
-        width, height = 1080, 60  # Increased width for longer buttons
+        width, height = 720, 60  # Increased width for longer buttons
         spacing = 40
         start_y = screen.get_height() // 2 - (height + spacing)  # Center the buttons
 
@@ -459,6 +459,6 @@ class Player:
             dy /= distance
             new_x = self.position[0] + dx * self.dash_distance
             new_y = self.position[1] + dy * self.dash_distance
-            self.position[0] = max(0, min(new_x, 1920 - self.size[0]))
-            self.position[1] = max(0, min(new_y, 1080 - self.size[1]))
+            self.position[0] = max(0, min(new_x, 1280 - self.size[0]))
+            self.position[1] = max(0, min(new_y, 720 - self.size[1]))
             self.last_dash_time = current_time

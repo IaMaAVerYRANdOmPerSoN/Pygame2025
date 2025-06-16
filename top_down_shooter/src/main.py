@@ -66,7 +66,7 @@ def show_start_screen(screen):
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
     pygame.display.set_caption("Top Down Shooter")
     while True:
         player_name = show_start_screen(screen)
@@ -91,7 +91,7 @@ def main():
                 game.player.health += game.player.health_regen if game.player.health < game.player.max_health else 0
                 game.enemy_spawn_rate = max(50, game.enemy_spawn_rate - 0.05)
                 game.enemy_health += 3
-                game.enemy_speed += 0.02
+                game.enemy_speed += 0.03
                 game.pickup_chance = game.enemy_spawn_rate * 3.33333333333333333333333333333E-5
                 last_stat_update = now
 

@@ -1,1 +1,9 @@
 
+no: 400
+not bill: 30
+what: 190
+12345: 10200
+name: 1930
+N74: 310
+Mine test: 370
+screen size test: 30
