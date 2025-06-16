@@ -160,7 +160,7 @@ class Game:
                 # Add death explosion effect
                 self.explosions.append({
                     "pos": enemy.rect.center,
-                    "radius": 60,  # or adjust as needed
+                    "radius": 40,  
                     "start_time": pygame.time.get_ticks(),
                     "frame": 0,
                     "type": "death_explosion"
@@ -226,11 +226,11 @@ class Game:
                         "amount": 3
                     })
                 elif pickup.kind == "overload":
-                    self.player.health_regen += 1
+                    self.player.health_regen += 5
                     self.player.health += 20
                     self.player.health = min(self.player.health, self.player.max_health)
                     self.player.bullet_damage += 20
-                    self.player.speed += 3
+                    self.player.speed += 2
                     self.active_buffs.append({
                         "type": "damage",
                         "expire_time": time.time() + 5,

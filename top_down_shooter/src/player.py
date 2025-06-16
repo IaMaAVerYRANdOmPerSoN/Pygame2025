@@ -63,11 +63,11 @@ class EnergyBlast:
         self.active = False
         self.start_time = 0
         self.duration = 0.5  # seconds
-        self.radius = 500
+        self.radius = 320
         self.current_radius = 0
-        self.max_radius = 500
+        self.max_radius = 400
         self.damage = 120
-        self.knockback = 100
+        self.knockback = 80
         self.cooldown = 5
         self.last_used = 0
         self.sound = pygame.mixer.Sound("energy_blast.mp3")
@@ -181,7 +181,7 @@ class Player:
         self.level = 0  # Player level
         self.mines = []  # List to hold mines
         self.energy_blast_cooldown = 5  # seconds
-        self.energy_blast_radius = 500  # Radius of the energy blast
+        self.energy_blast_radius = 320  # Radius of the energy blast
         self.energy_blast_damage = 120  # Damage of the energy blast
         self.energy_blast_knockback = 80  # Knockback distance for enemies hit by the blast
         self.energy_blast = EnergyBlast(self, draw_callback=None)  # Initialize energy blast with player reference
@@ -341,7 +341,7 @@ class Player:
         elif upgrade == "energy_blast_damage":
             self.energy_blast_damage += 30
         elif upgrade == "energy_blast_radius":
-            self.energy_blast_radius += 50
+            self.energy_blast_radius += 20
         elif upgrade == "energy_blast_knockback":
             self.energy_blast_knockback = min(160, self.energy_blast_knockback + 20)
         elif upgrade == "energy_blast_cooldown":

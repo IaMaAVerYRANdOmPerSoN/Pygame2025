@@ -69,6 +69,8 @@ def main():
     screen = pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
     pygame.display.set_caption("Top Down Shooter")
     while True:
+        from enemy import ENEMY_IMAGE, RANGED_ENEMY_IMAGE, enemies_killed_melee, enemies_killed_ranged
+        from enemy import SPAWNER_ENEMY_IMAGE, enemies_killed_spawner
         player_name = show_start_screen(screen)
         game = Game(screen)
         game.initialize()
@@ -77,6 +79,9 @@ def main():
         game.player.energy_blast.draw_callback = game.draw
         game.pickup_chance = 0.1
         game.running = True
+        enemies_killed_melee = 0
+        enemies_killed_ranged = 0
+        enemies_killed_spawner = 0
 
         while game.running:
             game.handle_events()
@@ -96,8 +101,7 @@ def main():
                 last_stat_update = now
 
         # --- END SCREEN ---
-        from enemy import ENEMY_IMAGE, RANGED_ENEMY_IMAGE, enemies_killed_melee, enemies_killed_ranged
-        from enemy import SPAWNER_ENEMY_IMAGE, enemies_killed_spawner
+
         screen.fill((0, 0, 0))
         # Large bold font for "Game Over" and stats
         title_font = pygame.font.Font(None, 160)
