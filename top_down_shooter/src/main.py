@@ -66,11 +66,18 @@ def show_start_screen(screen):
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
     pygame.display.set_caption("Top Down Shooter")
     while True:
-        from enemy import ENEMY_IMAGE, RANGED_ENEMY_IMAGE, enemies_killed_melee, enemies_killed_ranged
-        from enemy import SPAWNER_ENEMY_IMAGE, enemies_killed_spawner
+
+        from enemy import ENEMY_IMAGE, RANGED_ENEMY_IMAGE, SPAWNER_ENEMY_IMAGE
+        import enemy
+
+        # --- Prepare for the next run ---
+        enemy.enemies_killed_melee = 0
+        enemy.enemies_killed_ranged = 0
+        enemy.enemies_killed_spawner = 0
+
         player_name = show_start_screen(screen)
         game = Game(screen)
         game.initialize()
@@ -79,18 +86,17 @@ def main():
         game.player.energy_blast.draw_callback = game.draw
         game.pickup_chance = 0.1
         game.running = True
-        enemies_killed_melee = 0
-        enemies_killed_ranged = 0
-        enemies_killed_spawner = 0
 
+        # --- Main Loop ---
         while game.running:
             game.handle_events()
             game.update()
             game.draw()
             clock.tick(60)
             if pygame.time.get_ticks() // game.enemy_spawn_rate > getattr(game, 'last_enemy_spawn', -1):
-                game.spawn_enemy()
-                game.last_enemy_spawn = pygame.time.get_ticks() // 3000
+                if game.spawn_enemies:
+                    game.spawn_enemy()
+                    game.last_enemy_spawn = pygame.time.get_ticks() // game.enemy_spawn_rate
             now = pygame.time.get_ticks()
             if now - last_stat_update >= 3000:
                 game.player.health += game.player.health_regen if game.player.health < game.player.max_health else 0
@@ -101,10 +107,10 @@ def main():
                 last_stat_update = now
 
         # --- END SCREEN ---
-
         screen.fill((0, 0, 0))
-        # Large bold font for "Game Over" and stats
-        title_font = pygame.font.Font(None, 160)
+        # Large bold font for "Game Over" and stats, scaled for 1080p
+        title_font = pygame.font.Font(None, 140)
+        stat_font = pygame.font.Font(None, 90)
         stat_font = pygame.font.Font(None, 120)
         label_font = pygame.font.Font(None, 60)
 
@@ -127,7 +133,7 @@ def main():
         screen.blit(killed_text, killed_rect)
 
         # Melee enemies killed (centered)
-        melee_text = stat_font.render(f"{enemies_killed_melee}", True, (255, 255, 255))
+        melee_text = stat_font.render(f"{enemy.enemies_killed_melee}", True, (255, 255, 255))
         x_font = label_font.render("x", True, (255, 255, 255))
         enemy_img = ENEMY_IMAGE
         total_width = (
@@ -145,7 +151,7 @@ def main():
         screen.blit(enemy_img, enemy_img_rect)
 
         # Ranged enemies killed (centered)
-        ranged_text = stat_font.render(f"{enemies_killed_ranged}", True, (255, 255, 255))
+        ranged_text = stat_font.render(f"{enemy.enemies_killed_ranged}", True, (255, 255, 255))
         x2_font = label_font.render("x", True, (255, 255, 255))
         ranged_img = RANGED_ENEMY_IMAGE
         total_width2 = (
@@ -163,7 +169,7 @@ def main():
         screen.blit(ranged_img, ranged_img_rect)
 
         # Spawner enemies killed (centered)
-        spawner_text = stat_font.render(f"{enemies_killed_spawner}", True, (255, 255, 255))
+        spawner_text = stat_font.render(f"{enemy.enemies_killed_spawner}", True, (255, 255, 255))
         x3_font = label_font.render("x", True, (255, 255, 255))
         spawner_img = SPAWNER_ENEMY_IMAGE
         total_width3 = (

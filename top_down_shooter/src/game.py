@@ -1,6 +1,6 @@
 import pygame
 from pygame.locals import *
-from enemy import RangedEnemy
+from enemy import RangedEnemy, BossEnemy
 from pygame import mixer
 import time
 
@@ -8,7 +8,14 @@ import glob
 
 # Load all explosion frames into a list
 pygame.init()
-pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
+pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+
+MISSLE_EXPLOSION_FRAMES = [
+    pygame.image.load(f).convert_alpha()
+    for f in sorted(glob.glob("Explosion_missle/*.png"))
+]
+MISSLE_EXPLOSION_FRAME_COUNT = len(MISSLE_EXPLOSION_FRAMES)
+MISSLE_EXPLOSION_ANIMATION_DURATION = 500  # ms
 
 DEATH_EXPLOSION_FRAMES = [
     pygame.image.load(f).convert_alpha()
@@ -45,10 +52,11 @@ class Game:
         self.explosions = []
         self.pickups = []
         self.active_buffs = []  # Track active timed buffs
-        self.background =  pygame.transform.scale(pygame.image.load("Background.jpg"), (1280, 720))
+        self.background =  pygame.transform.scale(pygame.image.load("Background.jpg"), (1920, 1080))
         self.weapon_choice = None
         self.weapon_choosen = False
         self.pickup_chance = None
+        self.spawn_enemies = True
 
     def initialize(self):
         from player import Player
@@ -156,7 +164,7 @@ class Game:
                 if pickup:
                     self.pickups.append(pickup)
                 self.enemies.remove(enemy)
-                self.player.score += 10
+                self.player.score += 100
                 # Add death explosion effect
                 self.explosions.append({
                     "pos": enemy.rect.center,
@@ -165,6 +173,8 @@ class Game:
                     "frame": 0,
                     "type": "death_explosion"
                 })
+            if hasattr(self, "boss_spawned") and enemy == self.boss:
+                self.boss.spawn_missle()
 
         # --- Level Up and Upgrades ---
         if self.player.score >= self.player.next_level_score[self.player.level]:
@@ -199,6 +209,13 @@ class Game:
                     pygame.time.wait(10)
                 self.weapon_chosen = True
             elif self.player.level != 10:
+                if self.player.level >= 20 and not hasattr(self, "boss_spawned"):
+                    self.boss = BossEnemy()
+                    self.boss.player = self.player
+                    self.boss.game = self
+                    self.enemies.append(self.boss)
+                    self.spawn_enemies = False
+                    self.boss_spawned = True
                 upgrade_text = font.render("Pick an upgrade!", True, (255, 255, 0))
                 text_rect = upgrade_text.get_rect(center=(self.screen.get_width() // 2, self.screen.get_height() // 2 * 1.8))
                 self.screen.blit(upgrade_text, text_rect)
@@ -290,11 +307,35 @@ class Game:
                     EXPLOSION_SOUND.play()
                     break  # Only trigger once per mine
 
+        # --- Missle Collisions ---
+        if hasattr(self, 'boss'):
+            for missle in self.boss.missles[:]:
+                if missle.rect.inflate(missle.radius, missle.radius).colliderect(self.player.rect):
+                    self.player.health -= missle.damage
+                    self.explosions.append({
+                        "pos": missle.rect.center,
+                        "radius": missle.radius,
+                        "start_time": pygame.time.get_ticks(),
+                        "frame": 0,
+                        "type": "missle_explosion"
+                    })
+                    self.boss.missles.remove(missle)
+                    if self.player.health  <= 0:
+                        self.running = False
+                elif not self.screen.get_rect().colliderect(missle.rect):
+                    self.explosions.append({
+                        "pos": missle.rect.center,
+                        "radius": missle.radius,
+                        "start_time": pygame.time.get_ticks(),
+                        "frame": 0,
+                        "type": "missle_explosion"
+                    })
+                    self.boss.missles.remove(missle)
+
         
         for mine in mines_to_remove:
             if mine in self.player.mines:
                 self.player.mines.remove(mine)
-
 
 
 
@@ -340,14 +381,27 @@ class Game:
         # Draw pickups
         for pickup in self.pickups:
             pickup.draw(self.screen)
+        # Draw missiles:
+        if hasattr(self, "boss"):
+            for missile in self.boss.missles:
+                missile.draw(self.screen)
         # Draw explosions
         now = pygame.time.get_ticks()
         for explosion in self.explosions:
             elapsed = now - explosion["start_time"]
-            if explosion.get("type") == "death_explosion":
+            explosion_type = explosion.get("type")
+            if explosion_type == "death_explosion":
                 frame_idx = int((elapsed / DEATH_EXPLOSION_ANIMATION_DURATION) * DEATH_EXPLOSION_FRAME_COUNT)
                 frame_idx = min(frame_idx, DEATH_EXPLOSION_FRAME_COUNT - 1)
                 frame_img = DEATH_EXPLOSION_FRAMES[frame_idx]
+                scale = explosion["radius"] * 2
+                frame_img = pygame.transform.scale(frame_img, (scale, scale))
+                rect = frame_img.get_rect(center=explosion["pos"])
+                self.screen.blit(frame_img, rect)
+            elif explosion_type == "missle_explosion":
+                frame_idx = int((elapsed / MISSLE_EXPLOSION_ANIMATION_DURATION) * MISSLE_EXPLOSION_FRAME_COUNT)
+                frame_idx = min(frame_idx, MISSLE_EXPLOSION_FRAME_COUNT - 1)
+                frame_img = MISSLE_EXPLOSION_FRAMES[frame_idx]
                 scale = explosion["radius"] * 2
                 frame_img = pygame.transform.scale(frame_img, (scale, scale))
                 rect = frame_img.get_rect(center=explosion["pos"])
@@ -382,7 +436,7 @@ class Game:
         for bullet in self.player.bullets:
             bullet.update()
         # Remove bullets that go off screen
-        self.player.bullets = [b for b in self.player.bullets if 0 <= b.rect.x <= 1280 and 0 <= b.rect.y <= 720]
+        self.player.bullets = [b for b in self.player.bullets if 0 <= b.rect.x <= 1920 and 0 <= b.rect.y <= 1080]
         self.player.rect.topleft = self.player.position
         self.player.rect = pygame.Rect(self.player.position[0], self.player.position[1], *self.player.size)
         self.player.rect.clamp_ip(self.screen.get_rect())
@@ -392,6 +446,9 @@ class Game:
             if hasattr(enemy, "shoot"):
                 enemy.shoot()
         self.player.energy_blast.update(self.enemies)
+        if hasattr(self, "boss"):
+            for missle in self.boss.missles:
+                missle.update(target_x = self.player.position[0], target_y = self.player.position[1])
 
     def spawn_enemy(self):
         from enemy import Enemy, RangedEnemy

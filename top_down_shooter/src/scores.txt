@@ -7,3 +7,34 @@ name: 1930
 N74: 310
 Mine test: 370
 screen size test: 30
+Apostla: 620
+Apostla: 84900
+hi: 360
+hi: 390
+boss: 30
+Apostla: 440
+asda: 1790
+Apostla: 860
+apostla: 520
+apostla: 790
+Apostla: 1190
+Apostla is cool: 720
+hello: 10
+Balanced trust: 2000
+a: 11600
+hi: 3500
+hi: 2600
+hi: 6400
+hello: 4800
+ap: 1400
+hi: 7000
+hi: 2200
+Apostla: 4300
+ap: 1800
+ap: 5700
+ap: 19600
+ap: 18200
+hi: 14200
+a: 3600
+ap: 9200
+hi: 4600
