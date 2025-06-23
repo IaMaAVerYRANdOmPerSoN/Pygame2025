@@ -83,7 +83,7 @@ def main():
         game.initialize()
         clock = pygame.time.Clock()
         last_stat_update = pygame.time.get_ticks()
-        game.player.energy_blast.draw_callback = game.draw
+        game.player.energy_blaster.draw_callback = game.draw
         game.pickup_chance = 0.1
         game.running = True
 

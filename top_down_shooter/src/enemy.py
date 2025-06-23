@@ -1,21 +1,22 @@
 import pygame
 import time
-from player import Bullet  # Adjust import as needed
+from weapons import Bullet  # Adjust import as needed
 from pickup import Pickup
 import random
 from numpy import sign
 import math
+from weapons import Missile
 
-ENEMY_IMAGE = pygame.image.load("enemy_1.png")
+ENEMY_IMAGE = pygame.image.load("media\enemy_1.png")
 ENEMY_IMAGE = pygame.transform.scale(ENEMY_IMAGE, (80, 80))
 
-RANGED_ENEMY_IMAGE = pygame.image.load("enemy_2.png")
+RANGED_ENEMY_IMAGE = pygame.image.load("media\enemy_2.png")
 RANGED_ENEMY_IMAGE = pygame.transform.scale(RANGED_ENEMY_IMAGE, (80, 80))
 
-SPAWNER_ENEMY_IMAGE = pygame.image.load("enemy_3.png")
+SPAWNER_ENEMY_IMAGE = pygame.image.load("media\enemy_3.png")
 SPAWNER_ENEMY_IMAGE = pygame.transform.scale(SPAWNER_ENEMY_IMAGE, (80, 80))
 
-MISSLE_IMAGE = pygame.image.load("Enemy_Missile.png")
+
 
 enemies_killed_melee = 0
 enemies_killed_ranged = 0
@@ -49,7 +50,6 @@ class Enemy:
         self.health -= amount
         if self.health <= 0:
             self.health = 0
-            print("Enemy defeated!")
             global enemies_killed_melee, enemies_killed_ranged, enemies_killed_spawner
             if isinstance(self, RangedEnemy):
                 enemies_killed_ranged += 1
@@ -62,13 +62,13 @@ class Enemy:
         if random.random() < self.pickup_chance:  # 10% chance to drop a pickup
             pickup_type = random.choice(["health", "damage", "speed", "health", "damage", "speed", "overload"])
             if pickup_type == "health":
-                image = pygame.image.load("health_pickup.png").convert_alpha()
+                image = pygame.image.load("media\health_pickup.png").convert_alpha()
             elif pickup_type == "damage":
-                image = pygame.image.load("damage_pickup.png").convert_alpha()
+                image = pygame.image.load("media\damage_pickup.png").convert_alpha()
             elif pickup_type == "speed":
-                image = pygame.image.load("speed_pickup.png").convert_alpha()
+                image = pygame.image.load("media\speed_pickup.png").convert_alpha()
             elif pickup_type == "overload":
-                image = pygame.image.load("overload_pickup.png").convert_alpha()
+                image = pygame.image.load("media\overload_pickup.png").convert_alpha()
             else:
                 image = None
             return Pickup(self.rect.centerx, self.rect.centery, size=(50, 50), image=image, kind=pickup_type)
@@ -84,7 +84,7 @@ class Enemy:
             dy = py - ey
             distance = (dx ** 2 + dy ** 2) ** 0.5
             angle = pygame.math.Vector2(dx, dy).angle_to((1, 0))
-            self.image = pygame.transform.rotate(pygame.image.load("enemy_1.png"), angle - 90)
+            self.image = pygame.transform.rotate(pygame.image.load("media\enemy_1.png"), angle - 90)
             self.image = pygame.transform.scale(self.image, (50, 50))
             self.rect = self.image.get_rect(center=self.rect.center)
             if distance != 0:
@@ -99,7 +99,7 @@ class RangedEnemy(Enemy):
         self.bullet_cooldown = 2
         self.last_shot_time = 0
         self.bullets = []
-        self.bullet_image = pygame.image.load("Enemy_Bullet.png")
+        self.bullet_image = pygame.image.load("media\Enemy_Bullet.png")
         super().__init__(x, y, health, speed, chance)
         self.image = RANGED_ENEMY_IMAGE.copy()
         
@@ -183,44 +183,6 @@ class SpawnerEnemy(Enemy):
                 self.move(move_x, move_y)
         self.spawn_enemy()
 
-class Missle():
-    def __init__(self, distance, angle, x, y, speed = 6, radius = 80, damage = 20):
-        self.distance = distance
-        self.angle = angle
-        self.x, self.y = (x, y)
-        self.speed = speed
-        self.original_image = pygame.transform.scale(MISSLE_IMAGE.copy(), (30, 30)) # Store the original image
-        self.image = self.original_image.copy()
-        self.radius = radius
-        self.damage = damage
-        self.rect = self.image.get_rect(center=(self.x, self.y))
-
-    def move(self, distance, angle):
-        radians = math.radians(angle)
-        self.x += distance * math.cos(radians)
-        self.y += distance * math.sin(radians)
-
-    def update(self, target_x, target_y):
-        dx = target_x - self.x
-        dy = target_y - self.y
-        self.distance = (dx ** 2 + dy ** 2) ** 0.5
-        target_angle = -pygame.math.Vector2(dx, dy).angle_to((1, 0))
-        max_turn = 1/2
-        angle_diff = (target_angle - self.angle + 180) % 360 - 180
-        if abs(angle_diff) > max_turn:
-            self.angle += max_turn * sign(angle_diff)
-        else:
-            self.angle = target_angle
-
-        self.image = pygame.transform.rotate(self.original_image, -self.angle - 90)
-        self.rect = self.image.get_rect(center=(self.x, self.y))
-        self.move(self.speed, self.angle)
-    
-    def draw(self, screen):
-        screen.blit(self.image, self.rect)
-        pygame.draw.rect(screen, (255,0,0), self.rect, 2)
-
-
 class BossEnemy(SpawnerEnemy):
     def __init__(self):
         super().__init__(x = 0, y = 0, health = 100000, speed = 0.5, chance = 1, game = None)
@@ -244,7 +206,7 @@ class BossEnemy(SpawnerEnemy):
             dy = py - ey
             distance = (dx ** 2 + dy ** 2) ** 0.5
             angle = -pygame.math.Vector2(dx, dy).angle_to((1, 0))
-            self.missles.append(Missle(distance, angle, ex, ey))
+            self.missles.append(Missile(distance, angle, ex, ey))
 
     def update(self):
         super(type(self).__bases__[0], self).update()

@@ -12,32 +12,32 @@ pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
 
 MISSLE_EXPLOSION_FRAMES = [
     pygame.image.load(f).convert_alpha()
-    for f in sorted(glob.glob("Explosion_missle/*.png"))
+    for f in sorted(glob.glob("media/Explosion_missle/*.png"))
 ]
 MISSLE_EXPLOSION_FRAME_COUNT = len(MISSLE_EXPLOSION_FRAMES)
 MISSLE_EXPLOSION_ANIMATION_DURATION = 500  # ms
 
 DEATH_EXPLOSION_FRAMES = [
     pygame.image.load(f).convert_alpha()
-    for f in sorted(glob.glob("Explosion_death/*.png"))
+    for f in sorted(glob.glob("media/Explosion_death/*.png"))
 ]
 DEATH_EXPLOSION_FRAME_COUNT = len(DEATH_EXPLOSION_FRAMES)
 DEATH_EXPLOSION_ANIMATION_DURATION = 500  # ms
 
 EXPLOSION_FRAMES = [
     pygame.image.load(f).convert_alpha()
-    for f in sorted(glob.glob("Explosion/*.png"))
+    for f in sorted(glob.glob("media/Explosion/*.png"))
 ]
 EXPLOSION_FRAME_COUNT = len(EXPLOSION_FRAMES)
 EXPLOSION_ANIMATION_DURATION = 500  # milliseconds
 
 mixer.init()
 # Load sounds
-HIT_SOUND = pygame.mixer.Sound("hit.wav")
+HIT_SOUND = pygame.mixer.Sound("media\hit.wav")
 HIT_SOUND.set_volume(0.4)
-EXPLOSION_SOUND = pygame.mixer.Sound("explosion.wav")
+EXPLOSION_SOUND = pygame.mixer.Sound("media\explosion.wav")
 EXPLOSION_SOUND.set_volume(0.15)
-SHOOT_SOUND = pygame.mixer.Sound("shoot.mp3")
+SHOOT_SOUND = pygame.mixer.Sound("media\shoot.mp3")
 SHOOT_SOUND.set_volume(0.25)
 
 class Game:
@@ -52,7 +52,7 @@ class Game:
         self.explosions = []
         self.pickups = []
         self.active_buffs = []  # Track active timed buffs
-        self.background =  pygame.transform.scale(pygame.image.load("Background.jpg"), (1920, 1080))
+        self.background =  pygame.transform.scale(pygame.image.load("media\Background.jpg"), (1920, 1080))
         self.weapon_choice = None
         self.weapon_choosen = False
         self.pickup_chance = None
@@ -86,12 +86,7 @@ class Game:
             if self.weapon_choice == "mine":
                 self.player.drop_mine()
             elif self.weapon_choice == "energy_blast":
-                self.player.energy_blast.start(
-                    cooldown = self.player.energy_blast_cooldown,
-                    damage = self.player.energy_blast_damage,
-                    radius = self.player.energy_blast_radius, 
-                    knockback = self.player.energy_blast_knockback
-                    )
+                self.player.energy_blaster.fire(self.player.energy_blaster.firing_pattern)
 
         # --- Event loop ---
         for event in pygame.event.get():
@@ -106,7 +101,7 @@ class Game:
         # --- Bullet-Enemy Collisions ---
         INFLATE_DIST = 200
 
-        for bullet in self.player.bullets[:]:
+        for bullet in self.player.gun.bullets[:]:
             nearby_enemies = [enemy for enemy in self.enemies
                               if bullet.rect.inflate(INFLATE_DIST, INFLATE_DIST).colliderect(enemy.rect)]
             for enemy in nearby_enemies:
@@ -290,7 +285,7 @@ class Game:
 
         # --- Mine Collisions ---
         mines_to_remove = []
-        for mine in self.player.mines:
+        for mine in self.player.mine_layer.mines:
             for enemy in self.enemies:
                 if mine.rect.colliderect(enemy.rect):
                     for enemy2 in self.enemies:
@@ -433,10 +428,10 @@ class Game:
             self.draw()
 
     def update(self):
-        for bullet in self.player.bullets:
+        for bullet in self.player.gun.bullets:
             bullet.update()
         # Remove bullets that go off screen
-        self.player.bullets = [b for b in self.player.bullets if 0 <= b.rect.x <= 1920 and 0 <= b.rect.y <= 1080]
+        self.player.bullets = [b for b in self.player.gun.bullets if 0 <= b.rect.x <= 1920 and 0 <= b.rect.y <= 1080]
         self.player.rect.topleft = self.player.position
         self.player.rect = pygame.Rect(self.player.position[0], self.player.position[1], *self.player.size)
         self.player.rect.clamp_ip(self.screen.get_rect())
@@ -445,7 +440,7 @@ class Game:
             # Call shoot for RangedEnemy
             if hasattr(enemy, "shoot"):
                 enemy.shoot()
-        self.player.energy_blast.update(self.enemies)
+        self.player.energy_blaster.update(self.enemies)
         if hasattr(self, "boss"):
             for missle in self.boss.missles:
                 missle.update(target_x = self.player.position[0], target_y = self.player.position[1])
